@@ -1,4 +1,6 @@
 import SwiftUI
+import UniformTypeIdentifiers
+import PDFKit
 
 struct EditorView: View {
     @EnvironmentObject var store: DocumentsViewModel
@@ -6,6 +8,8 @@ struct EditorView: View {
     @Environment(\.scenePhase) var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var viewModel: EditorViewModel
+    @State private var uploadingDesign = false
+    @State private var designKind = "House plan / map"
     init(document: Agreement) {
         _viewModel = StateObject(wrappedValue: EditorViewModel(document: document))
     }
@@ -80,6 +84,24 @@ struct EditorView: View {
                     Button("Keep Editing", role: .cancel) { store.error = nil }
                 } message: { Text(store.error ?? "") }
                 .onAppear { viewModel.appear(store: store) }
+                .fileImporter(isPresented: $uploadingDesign, allowedContentTypes: [.image, .pdf]) { result in
+                    do {
+                        let url = try result.get()
+                        let access = url.startAccessingSecurityScopedResource()
+                        defer { if access { url.stopAccessingSecurityScopedResource() } }
+                        let data = try Data(contentsOf: url)
+                        guard data.count <= 20 * 1024 * 1024 else { store.error = "Choose a file smaller than 20 MB."; return }
+                        let isPDF = url.pathExtension.lowercased() == "pdf"
+                        guard isPDF ? PDFDocument(data: data) != nil : UIImage(data: data) != nil else {
+                            store.error = "Choose a readable image or PDF."; return
+                        }
+                        var designs = viewModel.document.houseDesigns ?? []
+                        designs.removeAll { $0.kind == designKind }
+                        designs.append(HouseDesignAttachment(kind: designKind, filename: url.lastPathComponent, data: data, isPDF: isPDF))
+                        viewModel.document.houseDesigns = designs
+                        viewModel.saveDraft()
+                    } catch { store.error = "Could not import the design. Please choose the file again." }
+                }
         }
     }
     private func field(_ label: String, _ value: Binding<String>, key: String = "", multiline: Bool = false) -> some View {
@@ -90,6 +112,7 @@ struct EditorView: View {
         }.padding(.vertical, 2)
     }
     private var details: some View {
+        Group {
         Section("Agreement details") {
             field("Document title", $viewModel.document.title, key: "title")
             field("Client name", $viewModel.document.clientName, key: "clientName")
@@ -98,6 +121,30 @@ struct EditorView: View {
             field("Subject", $viewModel.document.subject, key: "subject", multiline: true)
             field("Project location", $viewModel.document.location, multiline: true)
             field("Introductory wording", $viewModel.document.introduction, multiline: true)
+        }
+        Section("House designs (optional)") {
+            Text("Add a house plan or 3D design now, or reopen this agreement to add them later. Images and PDFs up to 20 MB each.").font(.caption).foregroundStyle(.secondary)
+            ForEach(["House plan / map", "3D house design"], id: \.self) { kind in
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(kind).font(.subheadline.weight(.semibold))
+                    if let attachment = viewModel.document.houseDesigns?.first(where: { $0.kind == kind }) {
+                        Text(attachment.filename).font(.caption).foregroundStyle(.secondary)
+                        if !attachment.isPDF, let image = UIImage(data: attachment.data) {
+                            Image(uiImage: image).resizable().scaledToFit().frame(maxHeight: 140)
+                        }
+                        CompactToggle(title: "Include in agreement PDF", isOn: Binding(get: {
+                            viewModel.document.houseDesigns?.first(where: { $0.kind == kind })?.includedInPDF ?? false
+                        }, set: { included in
+                            if let i = viewModel.document.houseDesigns?.firstIndex(where: { $0.kind == kind }) { viewModel.document.houseDesigns?[i].includedInPDF = included }
+                        }))
+                        Button("Remove file", role: .destructive) { viewModel.document.houseDesigns?.removeAll { $0.kind == kind } }
+                    }
+                    Button(viewModel.document.houseDesigns?.contains(where: { $0.kind == kind }) == true ? "Replace file" : "Upload file") {
+                        designKind = kind; uploadingDesign = true
+                    }
+                }.padding(.vertical, 4)
+            }
+        }
         }
     }
     private var selection: some View {

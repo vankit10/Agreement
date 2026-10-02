@@ -20,7 +20,7 @@ enum AgreementPDFRenderer {
         format.documentInfo = [kCGPDFContextTitle as String: document.title,
                                kCGPDFContextCreator as String: "Adarsh Agreement Builder"]
         let renderer = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: pageSize), format: format)
-        return renderer.pdfData { context in
+        let agreementData = renderer.pdfData { context in
             let canvas = PageCanvas(context: context, document: document)
             canvas.beginPage()
             for block in DocumentLayout.blocks(document) {
@@ -32,6 +32,17 @@ enum AgreementPDFRenderer {
             }
             if document.branding.trailingBrandPage { canvas.beginPage() }
         }
+        guard let pdf = PDFDocument(data: agreementData) else { return agreementData }
+        for attachment in document.houseDesigns ?? [] where attachment.includedInPDF {
+            if attachment.isPDF, let design = PDFDocument(data: attachment.data) {
+                for index in 0..<design.pageCount {
+                    if let page = design.page(at: index) { pdf.insert(page, at: pdf.pageCount) }
+                }
+            } else if let image = UIImage(data: attachment.data), let page = PDFPage(image: image) {
+                pdf.insert(page, at: pdf.pageCount)
+            }
+        }
+        return pdf.dataRepresentation() ?? agreementData
     }
 }
 

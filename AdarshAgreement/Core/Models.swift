@@ -12,6 +12,15 @@ struct Branding: Codable, Equatable {
     var trailingBrandPage = true
 }
 
+struct HouseDesignAttachment: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var kind: String
+    var filename: String
+    var data: Data
+    var isPDF: Bool
+    var includedInPDF = true
+}
+
 struct FlooringPriceRange: Codable, Equatable {
     var included = false
     var minimum = ""
@@ -121,6 +130,7 @@ struct Milestone: Identifiable, Codable, Equatable {
 }
 
 struct Agreement: Identifiable, Codable, Equatable {
+    var houseDesigns: [HouseDesignAttachment]?
     var id = UUID()
     var title = "MEMORANDUM OF AGREEMENT"
     var clientName = ""

@@ -2,6 +2,18 @@ import XCTest
 @testable import AgreementCore
 
 final class AgreementCoreTests: XCTestCase {
+    func testOptionalDesignsPersistAndOlderAgreementsStillDecode() throws {
+        var d = validDocument()
+        let oldData = try JSONEncoder().encode(d)
+        XCTAssertNil(try JSONDecoder().decode(Agreement.self, from: oldData).houseDesigns)
+        d.houseDesigns = [HouseDesignAttachment(kind: "House plan / map", filename: "plan.pdf", data: Data([1, 2, 3]), isPDF: true)]
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let repository = try AgreementRepository(directory: directory)
+        try repository.save(d)
+        XCTAssertEqual(try repository.load(d.id).houseDesigns, d.houseDesigns)
+        XCTAssertEqual(try repository.duplicate(d).houseDesigns, d.houseDesigns)
+        XCTAssertTrue(Validator.issues(d).isEmpty)
+    }
     func validDocument() -> Agreement {
         var d = Agreement(); d.clientName = "Ankit"; d.address = "Lucknow"; d.mobile = "+91 9453919659"
         d.subject = "Residence construction"; d.floors[0].area = "1000"; return d
