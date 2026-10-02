@@ -12,7 +12,7 @@ enum AgreementPDFRenderer {
         snapshot.revision = 0; snapshot.step = 0; snapshot.status = ""
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         var bytes = try encoder.encode(snapshot)
-        bytes.append(Data("adarsh-renderer-2-optional-flooring-ranges".utf8))
+        bytes.append(Data("adarsh-renderer-5-branded-header-footer".utf8))
         return SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
     }
     static func render(_ document: Agreement) -> Data {
@@ -44,13 +44,18 @@ private final class PageCanvas {
     let width: CGFloat = 511.25
     let bodyBottom: CGFloat = 725
     let blue = UIColor(red: 0.25, green: 0.44, blue: 0.76, alpha: 1)
+    let navy = UIColor(red: 0.06, green: 0.18, blue: 0.34, alpha: 1)
+    let green = UIColor(red: 0.27, green: 0.65, blue: 0.22, alpha: 1)
+    var pageNumber = 0
     init(context: UIGraphicsPDFRendererContext, document: Agreement) { self.context = context; self.document = document }
-    func asset(_ name: String, _ rect: CGRect) {
+    func asset(_ name: String, _ rect: CGRect, alpha: CGFloat = 1) {
         guard let url = Bundle.main.url(forResource: name, withExtension: "png"), let image = UIImage(contentsOfFile: url.path) else {
             AppLog.pdf.error("Bundled branding asset could not be loaded: \(name, privacy: .public)")
             return
         }
-        image.draw(in: rect)
+        let scale = min(rect.width / image.size.width, rect.height / image.size.height)
+        let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        image.draw(in: CGRect(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2, width: size.width, height: size.height), blendMode: .normal, alpha: alpha)
     }
     func attributes(size: CGFloat, bold: Bool = false, color: UIColor = .black) -> [NSAttributedString.Key: Any] {
         [.font: UIFont(name: bold ? "TimesNewRomanPS-BoldMT" : "TimesNewRomanPSMT", size: size) ?? UIFont.systemFont(ofSize: size), .foregroundColor: color]
@@ -63,24 +68,42 @@ private final class PageCanvas {
         cg.move(to: CGPoint(x: 26, y: y)); cg.addLine(to: CGPoint(x: 579, y: y)); cg.strokePath()
     }
     func beginPage() {
-        context.beginPage(); y = 128
-        asset("watermark", CGRect(x: -19.4, y: 171.25, width: 617.4, height: 485.1))
-        asset("logo", CGRect(x: 10.2, y: 10.2, width: 121.16, height: 100.25))
-        asset("construction", CGRect(x: 466.2, y: 15.6, width: 111.25, height: 77.8))
-        asset("construction-detail", CGRect(x: 466.2, y: 41.05, width: 24.381, height: 14.9))
+        context.beginPage(); y = 128; pageNumber += 1
+        let cg = context.cgContext
+        cg.setFillColor(navy.cgColor)
+        cg.fill(CGRect(x: 0, y: 0, width: AgreementPDFRenderer.pageSize.width, height: 5))
+        asset("logo", CGRect(x: 55, y: 200, width: 485.25, height: 485.25), alpha: 0.065)
+        asset("logo", CGRect(x: 15, y: 10.2, width: 100, height: 100))
+        asset("construction", CGRect(x: 480.25, y: 10.2, width: 100, height: 100))
         let style = NSMutableParagraphStyle(); style.alignment = .center
-        let a: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 18, weight: .bold), .foregroundColor: blue, .paragraphStyle: style]
-        (document.branding.name as NSString).draw(in: CGRect(x: 115, y: 13, width: 346, height: 83), withAttributes: a)
-        rule(108.5); rule(738)
+        let a: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 17, weight: .bold), .foregroundColor: navy, .paragraphStyle: style]
+        let headerWidth: CGFloat = 355.25
+        let nameHeight = ceil((document.branding.name as NSString).boundingRect(with: CGSize(width: headerWidth, height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: a, context: nil).height)
+        (document.branding.name as NSString).draw(in: CGRect(x: (AgreementPDFRenderer.pageSize.width - headerWidth) / 2, y: 10.2 + max(0, (90 - nameHeight) / 2), width: headerWidth, height: nameHeight + 4), withAttributes: a)
+        cg.setFillColor(navy.cgColor)
+        cg.fill(CGRect(x: 26, y: 108.5, width: 543.25, height: 2))
+        cg.setFillColor(green.cgColor)
+        cg.fill(CGRect(x: 26, y: 108.5, width: 70, height: 2))
+        cg.setFillColor(UIColor(red: 0.96, green: 0.97, blue: 0.985, alpha: 1).cgColor)
+        cg.fill(CGRect(x: 0, y: 740, width: AgreementPDFRenderer.pageSize.width, height: 102))
+        cg.setFillColor(navy.cgColor)
+        cg.fill(CGRect(x: 26, y: 740, width: 543.25, height: 2))
+        cg.setFillColor(green.cgColor)
+        cg.fill(CGRect(x: 26, y: 740, width: 70, height: 2))
         let b = document.branding
-        draw("Contact- \(b.phones)", CGRect(x: 25, y: 753, width: 320, height: 25), size: 10, bold: true)
-        draw("Address - \(b.address)", CGRect(x: 25, y: 775, width: 300, height: 36), size: 10)
-        draw(b.website, CGRect(x: 25, y: 816, width: 300, height: 16), size: 10, color: .systemBlue)
-        draw("E-Mail: \(b.email)", CGRect(x: 355, y: 753, width: 226, height: 20), size: 10)
-        asset("instagram", CGRect(x: 360.45, y: 775, width: 18.55, height: 18.67))
-        draw("- \(b.instagram)", CGRect(x: 389, y: 775, width: 190, height: 23), size: 10)
-        asset("facebook", CGRect(x: 361.4, y: 799, width: 17.25, height: 16.89))
-        draw("- \(b.facebook)", CGRect(x: 389, y: 799, width: 190, height: 36), size: 10)
+        func footerText(_ text: String, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat = 16, bold: Bool = false) {
+            (text as NSString).draw(in: CGRect(x: x, y: y, width: width, height: height), withAttributes: [.font: UIFont.systemFont(ofSize: 9, weight: bold ? .semibold : .regular), .foregroundColor: navy])
+        }
+        footerText("CONTACT", x: 26, y: 751, width: 270, bold: true)
+        footerText(b.phones, x: 26, y: 768, width: 270)
+        footerText(b.address, x: 26, y: 785, width: 270, height: 28)
+        footerText(b.email, x: 315, y: 751, width: 254)
+        footerText(b.website, x: 315, y: 768, width: 254)
+        asset("instagram", CGRect(x: 315, y: 786, width: 12, height: 12))
+        footerText(b.instagram, x: 333, y: 786, width: 236)
+        asset("facebook", CGRect(x: 315, y: 803, width: 12, height: 12))
+        footerText(b.facebook, x: 333, y: 803, width: 236, height: 26)
+        footerText("Page \(pageNumber)", x: 26, y: 821, width: 270, bold: true)
     }
     func paragraph(_ text: String, heading: Bool) {
         let fontSize: CGFloat = heading ? 13 : 11.5
