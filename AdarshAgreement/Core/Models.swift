@@ -231,6 +231,10 @@ struct Agreement: Identifiable, Codable, Equatable {
         return values
     }
     var displayName: String { clientName.isEmpty ? "Untitled agreement" : clientName }
+    var hindiFilename: String {
+        let stem = filename.replacingOccurrences(of: ".pdf", with: "")
+        return stem + "-hi.pdf"
+    }
     var warnings: [String] {
         let selected = sections.filter(\.included).flatMap { $0.items.filter(\.included) }
         var result: [String] = []

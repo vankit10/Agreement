@@ -25,6 +25,7 @@ final class EditorViewModel: ObservableObject {
     @Published var savedMessage = ""
     @Published var addingTitle = false
     @Published var newTitle = ""
+    @Published var generatingHindiPDF = false
     private var autosave: Task<Void, Never>?
     private var openReady = false
     private weak var store: DocumentsViewModel?
@@ -66,8 +67,28 @@ final class EditorViewModel: ObservableObject {
         }
         do {
             guard let store else { throw CocoaError(.fileWriteUnknown) }
-            preview = PreviewRoute(url: try store.pdf(&document)); savedMessage = "Document saved"
+            preview = PreviewRoute(url: try store.pdf(&document), filename: document.filename); savedMessage = "Document saved"
         } catch { store?.error = AppLog.message(.pdf, error) }
+    }
+    func generateHindiPreview() {
+        showIssues = true; autosave?.cancel()
+        guard issues.isEmpty else { document.step = steps.count - 1; return }
+        guard let store else { return }
+        generatingHindiPDF = true
+        Task { [weak self] in
+            // If configuration fails immediately, resume after SwiftUI has
+            // finished processing this button action before publishing state.
+            await Task.yield()
+            defer { self?.generatingHindiPDF = false }
+            do {
+                let url = try await store.hindiPDF(self?.document ?? Agreement())
+                self?.preview = PreviewRoute(url: url, filename: self?.document.hindiFilename ?? "agreement-hi.pdf")
+                self?.savedMessage = "Hindi PDF ready"
+            } catch {
+                AppLog.failure(.pdf, error)
+                store.error = error.localizedDescription
+            }
+        }
     }
     func documentChanged(from old: Agreement, to new: Agreement) {
         var a = old; var b = new
@@ -115,4 +136,4 @@ final class EditorViewModel: ObservableObject {
     }
 }
 
-struct PreviewRoute: Identifiable { let id = UUID(); let url: URL }
+struct PreviewRoute: Identifiable { let id = UUID(); let url: URL; let filename: String }

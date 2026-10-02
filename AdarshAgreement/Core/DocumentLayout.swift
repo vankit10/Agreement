@@ -10,6 +10,13 @@ struct DocumentBlock {
 }
 
 enum DocumentLayout {
+    static func translationCandidates(_ d: Agreement) -> [String] {
+        blocks(d).map(\.text) + [
+            "Name", "Address", "Mobile", "Subject", "Location", "CONTACT", "Page", "For,",
+            "Signature", "Accepted by", "Name & Signature", "Witness"
+        ]
+    }
+
     static func blocks(_ d: Agreement) -> [DocumentBlock] {
         var blocks: [DocumentBlock] = []
         func text(_ text: String, heading: Bool = false) { blocks.append(DocumentBlock(text: text, heading: heading)) }
@@ -43,8 +50,7 @@ enum DocumentLayout {
         for floor in d.floors.filter(\.included) { text("\(floor.name): \(floor.area) sq ft × \(rupees(number(floor.rate))) = \(rupees(number(floor.area) * number(floor.rate)))") }
         if d.staircaseConfirmed { text("Additional staircase measurement: \(d.staircaseArea) sq ft × \(rupees(number(d.staircaseRate))) = \(rupees(number(d.staircaseArea) * number(d.staircaseRate)))") }
         text("Base cost: \(rupees(d.baseCost))")
-        for item in d.specificationCharges { text("\(item.label): \(rupees(item.fixedCharge))") }
-        text("Priced extras: \(rupees(d.extrasCost))\nSubtotal: \(rupees(d.subtotal))" + (d.taxEnabled ? "\nTax (\(d.taxPercent)% on \(rupees(number(d.taxableAmount)))): \(rupees(d.tax))" : "") + "\nTotal cost: \(rupees(d.total))")
+        text("Total: \(rupees(d.total))")
         text("NOTE: " + d.areaNote)
         text("TERMS & CONDITIONS", heading: true)
         for clause in d.terms.filter(\.included) { text(clause.text) }

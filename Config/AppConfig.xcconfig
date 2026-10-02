@@ -1,0 +1,4 @@
+// Public configuration. Secrets.xcconfig exists only on developer machines.
+#include? "Secrets.xcconfig"
+
+TRANSLATION_API_URL = https://adarsh-translation-api-669768059927.asia-south1.run.app/translate

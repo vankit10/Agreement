@@ -32,7 +32,9 @@ final class AgreementRepository {
         if FileManager.default.fileExists(atPath: pdf.path) { try FileManager.default.removeItem(at: pdf) }
     }
     func savePDF(_ data: Data, for id: UUID) throws { try data.write(to: pdfURL(id), options: .atomic) }
+    func savePDF(_ data: Data, at url: URL) throws { try data.write(to: url, options: .atomic) }
     func pdfURL(_ id: UUID) -> URL { directory.appendingPathComponent(id.uuidString + ".pdf") }
+    func hindiPDFURL(_ id: UUID) -> URL { directory.appendingPathComponent(id.uuidString + "-hi.pdf") }
     private func recordURL(_ id: UUID) -> URL { directory.appendingPathComponent(id.uuidString + ".json") }
     func loadBranding() throws -> Branding {
         let url = directory.appendingPathComponent("company.json")

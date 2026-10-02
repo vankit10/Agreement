@@ -2,6 +2,27 @@ import XCTest
 @testable import AgreementCore
 
 final class AgreementCoreTests: XCTestCase {
+    func testBackupRestoresAttachmentsAndPreservesConflictingAgreements() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let source = try AgreementRepository(directory: root.appendingPathComponent("Source"))
+        let destination = try AgreementRepository(directory: root.appendingPathComponent("Destination"))
+        var agreement = validDocument()
+        agreement.houseDesigns = [HouseDesignAttachment(kind: "3D house design", filename: "house.png", data: Data([1, 2, 3]), isPDF: false)]
+        try source.save(agreement)
+        var branding = Branding(); branding.name = "Backup company"
+        try source.saveBranding(branding)
+        let backup = try AgreementBackup.decode(source.backupData())
+        XCTAssertEqual(try destination.restoreBackup(backup), 1)
+        XCTAssertEqual(try destination.load(agreement.id).houseDesigns, agreement.houseDesigns)
+        XCTAssertEqual(try destination.loadBranding(), branding)
+        XCTAssertEqual(try destination.restoreBackup(backup), 0)
+        var changed = agreement; changed.clientName = "Newer local version"
+        try destination.save(changed)
+        XCTAssertEqual(try destination.restoreBackup(backup), 1)
+        XCTAssertEqual(try destination.list().count, 2)
+        XCTAssertEqual(try destination.load(agreement.id).clientName, "Newer local version")
+        XCTAssertThrowsError(try AgreementBackup.decode(Data("{}".utf8)))
+    }
     func testOptionalDesignsPersistAndOlderAgreementsStillDecode() throws {
         var d = validDocument()
         let oldData = try JSONEncoder().encode(d)

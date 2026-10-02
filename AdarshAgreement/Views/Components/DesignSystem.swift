@@ -81,7 +81,7 @@ struct CompactToggle: View {
                 .frame(width: 40, height: 44)
                 .accessibilityLabel(title)
             if showsTitle {
-                Text(title).font(.system(.subheadline, design: .rounded))
+                Text(LocalizedStringKey(title)).font(.system(.subheadline, design: .rounded))
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }

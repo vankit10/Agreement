@@ -71,4 +71,15 @@ final class DocumentsViewModel: ObservableObject {
         guard save(&d, ready: true) else { throw CocoaError(.fileWriteUnknown) }
         return url
     }
+    func hindiPDF(_ document: Agreement) async throws -> URL {
+        guard let repository else { throw AppError.storageUnavailable }
+        let issues = Validator.issues(document)
+        guard issues.isEmpty else { throw AppError.validationFailed(count: issues.count) }
+        let translations = try await OnlineTranslationService.translateToHindi(DocumentLayout.translationCandidates(document))
+        let bytes = AgreementPDFRenderer.render(document, translations: translations)
+        let url = repository.hindiPDFURL(document.id)
+        try repository.savePDF(bytes, at: url)
+        AppLog.pdf.info("Online Hindi PDF rendered")
+        return url
+    }
 }

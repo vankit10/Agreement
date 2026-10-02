@@ -6,3 +6,4 @@ DerivedData/
 *.xcuserstate
 xcuserdata/
 docs/development-checks/
+Config/Secrets.xcconfig

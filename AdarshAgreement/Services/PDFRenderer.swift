@@ -12,23 +12,23 @@ enum AgreementPDFRenderer {
         snapshot.revision = 0; snapshot.step = 0; snapshot.status = ""
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         var bytes = try encoder.encode(snapshot)
-        bytes.append(Data("adarsh-renderer-5-branded-header-footer".utf8))
+        bytes.append(Data("adarsh-renderer-6-base-and-total-summary".utf8))
         return SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
     }
-    static func render(_ document: Agreement) -> Data {
+    static func render(_ document: Agreement, translations: [String: String] = [:]) -> Data {
         let format = UIGraphicsPDFRendererFormat()
         format.documentInfo = [kCGPDFContextTitle as String: document.title,
                                kCGPDFContextCreator as String: "Adarsh Agreement Builder"]
         let renderer = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: pageSize), format: format)
         let agreementData = renderer.pdfData { context in
-            let canvas = PageCanvas(context: context, document: document)
+            let canvas = PageCanvas(context: context, document: document, translations: translations)
             canvas.beginPage()
             for block in DocumentLayout.blocks(document) {
                 if block.pageBreak { canvas.beginPage() }
                 else if block.signature { canvas.signatureBlock() }
                 else if block.clientDetails { canvas.clientTable() }
-                else if block.documentTitle { canvas.title(block.text) }
-                else { canvas.paragraph(block.text, heading: block.heading) }
+                else if block.documentTitle { canvas.title(canvas.localized(block.text)) }
+                else { canvas.paragraph(canvas.localized(block.text), heading: block.heading) }
             }
             if document.branding.trailingBrandPage { canvas.beginPage() }
         }
@@ -50,6 +50,7 @@ enum AgreementPDFRenderer {
 private final class PageCanvas {
     let context: UIGraphicsPDFRendererContext
     let document: Agreement
+    let translations: [String: String]
     var y: CGFloat = 128
     let left: CGFloat = 42
     let width: CGFloat = 511.25
@@ -58,7 +59,10 @@ private final class PageCanvas {
     let navy = UIColor(red: 0.06, green: 0.18, blue: 0.34, alpha: 1)
     let green = UIColor(red: 0.27, green: 0.65, blue: 0.22, alpha: 1)
     var pageNumber = 0
-    init(context: UIGraphicsPDFRendererContext, document: Agreement) { self.context = context; self.document = document }
+    init(context: UIGraphicsPDFRendererContext, document: Agreement, translations: [String: String]) {
+        self.context = context; self.document = document; self.translations = translations
+    }
+    func localized(_ text: String) -> String { translations[text] ?? text }
     func asset(_ name: String, _ rect: CGRect, alpha: CGFloat = 1) {
         guard let url = Bundle.main.url(forResource: name, withExtension: "png"), let image = UIImage(contentsOfFile: url.path) else {
             AppLog.pdf.error("Bundled branding asset could not be loaded: \(name, privacy: .public)")
@@ -68,11 +72,15 @@ private final class PageCanvas {
         let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
         image.draw(in: CGRect(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2, width: size.width, height: size.height), blendMode: .normal, alpha: alpha)
     }
-    func attributes(size: CGFloat, bold: Bool = false, color: UIColor = .black) -> [NSAttributedString.Key: Any] {
-        [.font: UIFont(name: bold ? "TimesNewRomanPS-BoldMT" : "TimesNewRomanPSMT", size: size) ?? UIFont.systemFont(ofSize: size), .foregroundColor: color]
+    func attributes(size: CGFloat, bold: Bool = false, color: UIColor = .black, text: String = "") -> [NSAttributedString.Key: Any] {
+        let hasDevanagari = text.unicodeScalars.contains { (0x0900...0x097F).contains($0.value) }
+        let name = hasDevanagari
+            ? (bold ? "KohinoorDevanagari-Semibold" : "KohinoorDevanagari-Regular")
+            : (bold ? "TimesNewRomanPS-BoldMT" : "TimesNewRomanPSMT")
+        return [.font: UIFont(name: name, size: size) ?? UIFont.systemFont(ofSize: size), .foregroundColor: color]
     }
     func draw(_ text: String, _ rect: CGRect, size: CGFloat = 11, bold: Bool = false, color: UIColor = .black) {
-        (text as NSString).draw(in: rect, withAttributes: attributes(size: size, bold: bold, color: color))
+        (text as NSString).draw(in: rect, withAttributes: attributes(size: size, bold: bold, color: color, text: text))
     }
     func rule(_ y: CGFloat) {
         let cg = context.cgContext; cg.setStrokeColor(UIColor.black.cgColor); cg.setLineWidth(0.75)
@@ -105,7 +113,7 @@ private final class PageCanvas {
         func footerText(_ text: String, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat = 16, bold: Bool = false) {
             (text as NSString).draw(in: CGRect(x: x, y: y, width: width, height: height), withAttributes: [.font: UIFont.systemFont(ofSize: 9, weight: bold ? .semibold : .regular), .foregroundColor: navy])
         }
-        footerText("CONTACT", x: 26, y: 751, width: 270, bold: true)
+        footerText(localized("CONTACT"), x: 26, y: 751, width: 270, bold: true)
         footerText(b.phones, x: 26, y: 768, width: 270)
         footerText(b.address, x: 26, y: 785, width: 270, height: 28)
         footerText(b.email, x: 315, y: 751, width: 254)
@@ -114,7 +122,7 @@ private final class PageCanvas {
         footerText(b.instagram, x: 333, y: 786, width: 236)
         asset("facebook", CGRect(x: 315, y: 803, width: 12, height: 12))
         footerText(b.facebook, x: 333, y: 803, width: 236, height: 26)
-        footerText("Page \(pageNumber)", x: 26, y: 821, width: 270, bold: true)
+        footerText("\(localized("Page")) \(pageNumber)", x: 26, y: 821, width: 270, bold: true)
     }
     func paragraph(_ text: String, heading: Bool) {
         let fontSize: CGFloat = heading ? 13 : 11.5
@@ -124,7 +132,7 @@ private final class PageCanvas {
         // Break with Core Text instead of truncating long NSString bounding rectangles.
         for paragraph in text.components(separatedBy: "\n") {
             if paragraph.isEmpty { y += lineHeight; continue }
-            let attributed = NSAttributedString(string: paragraph, attributes: attributes(size: fontSize, bold: heading))
+            let attributed = NSAttributedString(string: paragraph, attributes: attributes(size: fontSize, bold: heading, text: paragraph))
             let typesetter = CTTypesetterCreateWithAttributedString(attributed)
             let string = paragraph as NSString
             var offset = 0
@@ -143,15 +151,16 @@ private final class PageCanvas {
     }
     func title(_ text: String) {
         let style = NSMutableParagraphStyle(); style.alignment = .center
-        let attrs: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 16.5, weight: .bold), .foregroundColor: blue, .paragraphStyle: style]
+        var attrs = attributes(size: 16.5, bold: true, color: blue, text: text)
+        attrs[.paragraphStyle] = style
         let height = (text as NSString).boundingRect(with: CGSize(width: width, height: CGFloat.greatestFiniteMagnitude), options: [.usesLineFragmentOrigin], attributes: attrs, context: nil).height
         if height > bodyBottom - y { paragraph(text, heading: true); return }
         (text as NSString).draw(in: CGRect(x: left, y: y + 10, width: width, height: height + 5), withAttributes: attrs)
         y += height + 40
     }
     func clientTable() {
-        var rows = [("Name", document.clientName), ("Address", document.address), ("Mobile", document.mobile), ("Subject", document.subject)]
-        if !document.location.isEmpty { rows.append(("Location", document.location)) }
+        var rows = [(localized("Name"), document.clientName), (localized("Address"), document.address), (localized("Mobile"), document.mobile), (localized("Subject"), document.subject)]
+        if !document.location.isEmpty { rows.append((localized("Location"), document.location)) }
         for (label, value) in rows {
             let attrs = attributes(size: 14, bold: true)
             let height = max(28, ceil((value as NSString).boundingRect(with: CGSize(width: width - 99, height: CGFloat.greatestFiniteMagnitude), options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: attrs, context: nil).height) + 14)
@@ -171,8 +180,8 @@ private final class PageCanvas {
     func signatureBlock() {
         // Two columns with wrapped names, followed by witnesses; remain together if possible.
         let b = document.branding
-        let texts = ["For,\n\(b.signatureName)\n\(document.companySigner)\n\n_______________________\nSignature",
-                     "Accepted by\n\(document.clientSigner.isEmpty ? document.clientName : document.clientSigner)\n\n\n_______________________\nName & Signature"]
+        let texts = ["\(localized("For,"))\n\(b.signatureName)\n\(document.companySigner)\n\n_______________________\n\(localized("Signature"))",
+                     "\(localized("Accepted by"))\n\(document.clientSigner.isEmpty ? document.clientName : document.clientSigner)\n\n\n_______________________\n\(localized("Name & Signature"))"]
         let heights = texts.map { ($0 as NSString).boundingRect(with: CGSize(width: 242, height: CGFloat.greatestFiniteMagnitude), options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: attributes(size: 12), context: nil).height }
         let height = max(heights.max() ?? 120, 130)
         if height + 110 > bodyBottom - y { beginPage() }
@@ -183,6 +192,6 @@ private final class PageCanvas {
             for i in 0..<2 { draw(texts[i], CGRect(x: left + CGFloat(i) * 269, y: y + 20, width: 242, height: height + 5), size: 12) }
             y += height + 35
         }
-        paragraph("1- Witness: \(document.witness1)\n_______________________\n\n2- Witness: \(document.witness2)\n_______________________", heading: false)
+        paragraph("1- \(localized("Witness")): \(document.witness1)\n_______________________\n\n2- \(localized("Witness")): \(document.witness2)\n_______________________", heading: false)
     }
 }

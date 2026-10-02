@@ -10,6 +10,7 @@ struct EditorView: View {
     @StateObject private var viewModel: EditorViewModel
     @State private var uploadingDesign = false
     @State private var designKind = "House plan / map"
+    @AppStorage("onlineTranslationEnabled") private var onlineTranslationEnabled = false
     init(document: Agreement) {
         _viewModel = StateObject(wrappedValue: EditorViewModel(document: document))
     }
@@ -23,10 +24,29 @@ struct EditorView: View {
                         Spacer()
                         if !viewModel.savedMessage.isEmpty { Label(viewModel.savedMessage, systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(.green) }
                     }
+                    Menu {
+                        ForEach(Array(viewModel.steps.enumerated()), id: \.offset) { index, step in
+                            Button {
+                                viewModel.jump(to: index)
+                                viewModel.showIssues = false
+                            } label: {
+                                if index == viewModel.index {
+                                    Label(viewModel.stepTitle(step), systemImage: "checkmark")
+                                } else {
+                                    Text(viewModel.stepTitle(step))
+                                }
+                            }
+                        }
+                    } label: {
+                        Label("Go to screen", systemImage: "list.bullet")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    }
+                    .accessibilityIdentifier("agreementScreenMenu")
                     ProgressView(value: Double(viewModel.index + 1), total: Double(viewModel.steps.count))
                         .tint(AgreementTheme.accent)
                         .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: viewModel.index)
-                    Text(viewModel.stepTitle(viewModel.current)).font(.system(.title3, design: .rounded, weight: .bold))
+                    Text(LocalizedStringKey(viewModel.stepTitle(viewModel.current))).font(.system(.title3, design: .rounded, weight: .bold))
                         .fixedSize(horizontal: false, vertical: true)
                 }.padding(16).agreementCard().padding(.horizontal, AgreementTheme.margin).padding(.vertical, 8)
                 Form {
@@ -62,6 +82,15 @@ struct EditorView: View {
                     Button(viewModel.index == viewModel.steps.count - 1 ? "Generate Preview" : "Next") {
                         viewModel.next()
                     }.buttonStyle(AgreementButtonStyle())
+                    if viewModel.index == viewModel.steps.count - 1, onlineTranslationEnabled {
+                        Button {
+                            viewModel.generateHindiPreview()
+                        } label: {
+                            Label(viewModel.generatingHindiPDF ? "Translating…" : "Generate Hindi PDF", systemImage: "character.book.closed")
+                        }
+                        .buttonStyle(AgreementButtonStyle(kind: .secondary))
+                        .disabled(viewModel.generatingHindiPDF)
+                    }
                 }.padding(.horizontal, 20).padding(.top, 4).padding(.bottom, 8)
                     .background(AgreementTheme.surface)
                     .overlay(alignment: .top) { Rectangle().fill(AgreementTheme.border).frame(height: 1) }
@@ -75,7 +104,7 @@ struct EditorView: View {
                 .onChange(of: viewModel.document) { old, new in viewModel.documentChanged(from: old, to: new) }
                 .onChange(of: scenePhase) { _, phase in if phase != .active { viewModel.background() } }
                 .onDisappear { viewModel.disappear() }
-                .sheet(item: $viewModel.preview) { route in PDFPreviewScreen(url: route.url, filename: viewModel.document.filename).environmentObject(store) }
+                .sheet(item: $viewModel.preview) { route in PDFPreviewScreen(url: route.url, filename: route.filename).environmentObject(store) }
                 .sheet(isPresented: $viewModel.addingTitle, onDismiss: { viewModel.cancelAddingTitle() }) {
                     AddTitleSheet(viewModel: viewModel)
                 }
@@ -106,8 +135,8 @@ struct EditorView: View {
     }
     private func field(_ label: String, _ value: Binding<String>, key: String = "", multiline: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(label).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-            TextField(label, text: value, axis: multiline ? .vertical : .horizontal)
+            Text(LocalizedStringKey(label)).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            TextField(LocalizedStringKey(label), text: value, axis: multiline ? .vertical : .horizontal)
             if viewModel.showIssues, let issue = viewModel.issues.first(where: { $0.id == key }) { Text(issue.message).font(.caption).foregroundStyle(.red) }
         }.padding(.vertical, 2)
     }
@@ -276,12 +305,6 @@ struct EditorView: View {
     private var totals: some View {
         Group {
             LabeledContent("Base cost", value: rupees(viewModel.document.baseCost))
-            ForEach(viewModel.document.specificationCharges) { item in
-                LabeledContent(item.label, value: rupees(item.fixedCharge))
-            }
-            LabeledContent("Priced extras", value: rupees(viewModel.document.extrasCost))
-            LabeledContent("Subtotal", value: rupees(viewModel.document.subtotal))
-            LabeledContent("Tax", value: rupees(viewModel.document.tax))
             LabeledContent("Total", value: rupees(viewModel.document.total)).font(.headline)
         }
     }
