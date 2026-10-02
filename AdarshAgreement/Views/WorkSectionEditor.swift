@@ -3,9 +3,25 @@ import SwiftUI
 struct WorkSectionEditor: View {
     @Binding var section: WorkSection
     var showIssues: Bool
+    var onRemoveTitle: (String) -> Void
     @StateObject private var viewModel = WorkSectionViewModel()
     @State private var editingSentenceIDs: Set<String> = []
     var body: some View {
+        Section {
+            HStack {
+                Text(section.displayTitle).font(.system(.subheadline, design: .rounded, weight: .semibold))
+                Spacer()
+                Button(role: .destructive) {
+                    onRemoveTitle(section.id)
+                } label: {
+                    Label("Remove title", systemImage: "trash")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("removeTitleFromSpecification")
+            }
+        } footer: {
+            Text("Removes this title and all of its selected specifications from the agreement.")
+        }
         if section.isCustom {
             Section("Work title") { TextField("Title name", text: $section.title) }
         }

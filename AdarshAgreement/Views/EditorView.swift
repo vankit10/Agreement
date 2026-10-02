@@ -33,7 +33,10 @@ struct EditorView: View {
                     case .details: details
                     case .selection: selection
                     case .work(let id):
-                        if let i = viewModel.document.sections.firstIndex(where: { $0.id == id }) { WorkSectionEditor(section: $viewModel.document.sections[i], showIssues: viewModel.showIssues).id(id) }
+                        if let i = viewModel.document.sections.firstIndex(where: { $0.id == id }) {
+                            WorkSectionEditor(section: $viewModel.document.sections[i], showIssues: viewModel.showIssues, onRemoveTitle: viewModel.removeTitle)
+                                .id(id)
+                        }
                     case .fees: fees
                     case .terms: terms
                     case .extras: extras
