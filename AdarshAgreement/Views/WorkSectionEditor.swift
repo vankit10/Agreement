@@ -4,6 +4,7 @@ struct WorkSectionEditor: View {
     @Binding var section: WorkSection
     var showIssues: Bool
     @StateObject private var viewModel = WorkSectionViewModel()
+    @State private var editingSentenceIDs: Set<String> = []
     var body: some View {
         if section.isCustom {
             Section("Work title") { TextField("Title name", text: $section.title) }
@@ -49,14 +50,22 @@ struct WorkSectionEditor: View {
                         TextField("Content", text: $item.wording, axis: .vertical)
                         TextField("Additional amount (₹, optional)", text: Binding(get: { item.additionalAmount ?? "" }, set: { item.additionalAmount = $0.isEmpty ? nil : $0 })).keyboardType(.decimalPad)
                     } else {
-                        Text(item.output).font(.subheadline).foregroundStyle(.secondary).lineSpacing(4).padding(.vertical, 4)
+                        if editingSentenceIDs.contains(item.id) {
+                            TextField("Sentence", text: $item.wording, axis: .vertical)
+                            Button("Done editing") { editingSentenceIDs.remove(item.id) }
+                                .buttonStyle(.borderless)
+                        } else {
+                            Text(item.output).font(.subheadline).foregroundStyle(.secondary).lineSpacing(4).padding(.vertical, 4)
+                            Button("Edit sentence") { editingSentenceIDs.insert(item.id) }
+                                .buttonStyle(.borderless)
+                        }
                     }
                 }
             }
         }
         Section("Add option") {
             TextField("Subtitle", text: $viewModel.subtitle)
-            TextField("Content", text: $viewModel.content, axis: .vertical)
+            TextField("Content (optional)", text: $viewModel.content, axis: .vertical)
             TextField("Additional amount (₹, optional)", text: $viewModel.amount).keyboardType(.decimalPad)
             Text("Enter a fixed charge here to add it to the agreement total. Leave blank for work covered by the construction rate.").font(.caption).foregroundStyle(.secondary)
             HStack {

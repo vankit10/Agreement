@@ -23,7 +23,7 @@ enum Validator {
             if section.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { add(section.id + "-title", step, "Enter a name for this work title.") }
             if section.items.filter(\.included).isEmpty { add(section.id, step, "\(section.title): select at least one item or add a custom clause.") }
             for item in section.items.filter(\.included) {
-                if item.wording.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { add(item.id, step, "\(item.label): wording is required.") }
+                if !item.isCustom && item.wording.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { add(item.id, step, "\(item.label): wording is required.") }
                 if item.supportsPriceRange, let range = item.priceRange, range.included {
                     if !isNumber(range.minimum) || !isNumber(range.maximum) || number(range.minimum) < 0 || number(range.maximum) < number(range.minimum) {
                         add(item.id + "-price-range", step, "\(item.label): enter a valid price range with maximum no lower than minimum.")

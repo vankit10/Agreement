@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 enum AgreementTheme {
     static let accent = Color(red: 0.16, green: 0.40, blue: 0.67)
@@ -76,13 +77,61 @@ struct CompactToggle: View {
         HStack(spacing: 10) {
             Toggle(title, isOn: $isOn)
                 .toggleStyle(.switch).labelsHidden().fixedSize()
-                .scaleEffect(0.78)
+                .scaleEffect(0.60)
                 .frame(width: 40, height: 44)
                 .accessibilityLabel(title)
             if showsTitle {
                 Text(title).font(.system(.subheadline, design: .rounded))
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
+        }
+    }
+}
+
+/// Dismisses the active keyboard when the user taps anywhere other than a text input.
+/// The recognizer does not cancel the original tap, so switches and buttons continue
+/// to respond normally.
+struct KeyboardDismissOnOutsideTap: UIViewRepresentable {
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeUIView(context: Context) -> UIView { UIView(frame: .zero) }
+
+    func updateUIView(_ view: UIView, context: Context) {
+        DispatchQueue.main.async { context.coordinator.install(in: view.window) }
+    }
+
+    static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
+        coordinator.remove()
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        private weak var recognizer: UITapGestureRecognizer?
+
+        func install(in window: UIWindow?) {
+            guard let window, recognizer?.view !== window else { return }
+            remove()
+            let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+            tap.cancelsTouchesInView = false
+            tap.delegate = self
+            window.addGestureRecognizer(tap)
+            recognizer = tap
+        }
+
+        func remove() {
+            recognizer?.view?.removeGestureRecognizer(recognizer!)
+            recognizer = nil
+        }
+
+        @objc private func dismissKeyboard() {
+            recognizer?.view?.endEditing(true)
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            var view = touch.view
+            while let current = view {
+                if current is UITextField || current is UITextView { return false }
+                view = current.superview
+            }
+            return true
         }
     }
 }

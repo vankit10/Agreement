@@ -39,7 +39,7 @@ enum Catalog {
             item("G-outer", "Double patam", "Only outer door and windows will be of double patam."),
             item("G-flush", "Flush doors", "All doors will be of ISI marked Flush Doors."),
             item("G-waterproof", "Bathroom door", "Bathroom door will be of waterproof flush door."),
-            item("G-frame", "Window frame and glass", "Window frame will be of sagwan wood with {dimension} mm glass of {brands}.", brands: ["ASI"], dimension: "4"),
+            item("G-frame", "Window frame and glass", "Window frame will be of sagwan wood with {dimension} mm glass.", dimension: "4"),
             item("G-interlock", "Main door interlock", "Main door with interlock will be provided.")]),
         WorkSection(id: "H", title: "Painting (Putty)", items: [
             item("H-putty", "Interior putty", "For interior: {brands} wall putty {quantity} coats.", brands: ["Nerolac", "JK", "Bajaj"], quantity: "2"),

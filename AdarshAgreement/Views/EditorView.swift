@@ -60,6 +60,7 @@ struct EditorView: View {
                     .overlay(alignment: .top) { Rectangle().fill(AgreementTheme.border).frame(height: 1) }
                     .shadow(color: .black.opacity(0.04), radius: 10, x: 0, y: -4)
             }.frame(maxWidth: 820).frame(maxWidth: .infinity).background(AgreementTheme.canvas)
+                .background(KeyboardDismissOnOutsideTap().frame(width: 0, height: 0))
                 .sensoryFeedback(.selection, trigger: viewModel.index)
                 .navigationTitle(viewModel.document.displayName).navigationBarTitleDisplayMode(.inline)
                 .navigationBarBackButtonHidden(true)
@@ -228,7 +229,6 @@ struct EditorView: View {
             ForEach(viewModel.document.specificationCharges) { item in
                 LabeledContent(item.label, value: rupees(item.fixedCharge))
             }
-            LabeledContent("Specification charges", value: rupees(viewModel.document.specificationCost))
             LabeledContent("Priced extras", value: rupees(viewModel.document.extrasCost))
             LabeledContent("Subtotal", value: rupees(viewModel.document.subtotal))
             LabeledContent("Tax", value: rupees(viewModel.document.tax))

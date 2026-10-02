@@ -44,11 +44,13 @@ enum DocumentLayout {
         if d.staircaseConfirmed { text("Additional staircase measurement: \(d.staircaseArea) sq ft × \(rupees(number(d.staircaseRate))) = \(rupees(number(d.staircaseArea) * number(d.staircaseRate)))") }
         text("Base cost: \(rupees(d.baseCost))")
         for item in d.specificationCharges { text("\(item.label): \(rupees(item.fixedCharge))") }
-        text("Specification charges: \(rupees(d.specificationCost))\nPriced extras: \(rupees(d.extrasCost))\nSubtotal: \(rupees(d.subtotal))" + (d.taxEnabled ? "\nTax (\(d.taxPercent)% on \(rupees(number(d.taxableAmount)))): \(rupees(d.tax))" : "") + "\nTotal cost: \(rupees(d.total))")
+        text("Priced extras: \(rupees(d.extrasCost))\nSubtotal: \(rupees(d.subtotal))" + (d.taxEnabled ? "\nTax (\(d.taxPercent)% on \(rupees(number(d.taxableAmount)))): \(rupees(d.tax))" : "") + "\nTotal cost: \(rupees(d.total))")
         text("NOTE: " + d.areaNote)
         text("TERMS & CONDITIONS", heading: true)
         for clause in d.terms.filter(\.included) { text(clause.text) }
-        page()
+        // Let the last term, late-payment wording, and extra-work section share
+        // available page space. The renderer will still begin a new page only
+        // when a line genuinely reaches the footer.
         if d.penaltyEnabled { text(d.penaltyWording.replacingOccurrences(of: "{percent}", with: d.penaltyPercent)) }
         text("EXTRA WORK:", heading: true)
         for extra in d.extras.filter(\.included) {

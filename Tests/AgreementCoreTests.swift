@@ -74,6 +74,27 @@ final class AgreementCoreTests: XCTestCase {
         XCTAssertEqual(restored.sections, Catalog.sections)
         XCTAssertEqual(restored.branding.name, "ADARSH INFRADEVELOPERS AND CONSTRUCTIONS")
     }
+    func testDoorAndWindowASIIsRemovedFromLegacyDrafts() {
+        var d = Agreement()
+        let section = d.sections.firstIndex { $0.id == "G" }!
+        let item = d.sections[section].items.firstIndex { $0.id == "G-frame" }!
+        d.sections[section].items[item].wording = "Window frame will be of sagwan wood with {dimension} mm glass of {brands}."
+        d.sections[section].items[item].brands = ["ASI"]
+        d.sections[section].items[item].selectedBrands = ["ASI"]
+
+        d.restoreMissingReferenceWording()
+
+        XCTAssertEqual(d.sections[section].items[item].output, "Window frame will be of sagwan wood with 4 mm glass.")
+        XCTAssertTrue(d.sections[section].items[item].brands.isEmpty)
+        XCTAssertTrue(d.sections[section].items[item].selectedBrands.isEmpty)
+    }
+    func testTermsContinueDirectlyIntoLatePaymentAndExtraWork() {
+        let blocks = DocumentLayout.blocks(validDocument())
+        let finalTerm = blocks.lastIndex { $0.text == Catalog.terms.last?.text }!
+        let latePayment = blocks.firstIndex { $0.text.contains("late payment") }!
+        XCTAssertEqual(latePayment, finalTerm + 1)
+        XCTAssertFalse(blocks[finalTerm + 1].pageBreak)
+    }
     func testCustomTitlePersistsValidatesAndExportsOnlyWhenIncluded() throws {
         var d = validDocument()
         XCTAssertFalse(d.addWorkTitle("   "))
@@ -81,7 +102,8 @@ final class AgreementCoreTests: XCTestCase {
         let i = d.sections.count - 1
         XCTAssertEqual(d.sections[i].title, "Waterproofing")
         XCTAssertTrue(d.sections[i].isCustom)
-        XCTAssertTrue(Validator.issues(d).contains { $0.id == d.sections[i].items[0].id })
+        XCTAssertFalse(Validator.issues(d).contains { $0.id == d.sections[i].items[0].id })
+        XCTAssertEqual(d.sections[i].items[0].output, "Work specification")
         d.sections[i].items[0].wording = "Terrace waterproofing with two coats."
         XCTAssertTrue(Validator.issues(d).isEmpty)
         let restored = try JSONDecoder().decode(Agreement.self, from: JSONEncoder().encode(d))

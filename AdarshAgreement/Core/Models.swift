@@ -69,7 +69,9 @@ struct WorkItem: Identifiable, Codable, Equatable {
         if isCustom, let additionalAmount, !additionalAmount.isEmpty {
             text += " Additional amount: \(rupees(number(additionalAmount)))."
         }
-        return text
+        // A custom option may be deliberately added without a sentence. Keep it
+        // visible in the agreement by using its subtitle as the output.
+        return text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && isCustom ? label : text
     }
 }
 
@@ -178,6 +180,11 @@ struct Agreement: Identifiable, Codable, Equatable {
                 let item = sections[sectionIndex].items[itemIndex]
                 if item.id == "J-gate" && item.wording == "Main gate (₹{quantity}), included in base rate." {
                     sections[sectionIndex].items[itemIndex].wording = "Main gate (₹{quantity})."
+                }
+                if item.id == "G-frame" && item.wording == "Window frame will be of sagwan wood with {dimension} mm glass of {brands}." {
+                    sections[sectionIndex].items[itemIndex].wording = "Window frame will be of sagwan wood with {dimension} mm glass."
+                    sections[sectionIndex].items[itemIndex].brands.removeAll { $0.caseInsensitiveCompare("ASI") == .orderedSame }
+                    sections[sectionIndex].items[itemIndex].selectedBrands.removeAll { $0.caseInsensitiveCompare("ASI") == .orderedSame }
                 }
                 guard !item.isCustom, item.wording.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                       let reference = Catalog.sections.flatMap(\.items).first(where: { $0.id == item.id }) else { continue }

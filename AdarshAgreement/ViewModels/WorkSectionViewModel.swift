@@ -7,7 +7,6 @@ final class WorkSectionViewModel: ObservableObject {
     @Published var amount = ""
     var canAddOption: Bool {
         !subtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        && !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         && (amount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (isNumber(amount) && number(amount) >= 0))
     }
     func add(to section: Binding<WorkSection>) {
